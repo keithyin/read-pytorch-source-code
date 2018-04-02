@@ -15,11 +15,14 @@ array([[1, 9, 3],
        [4, 5, 6]])
 ```
 那它底层的是如何存储ndarray呢，首先ndarray在内存中实际上都作为一个内存块进行存储，在C语言看来它是一个一维数组或者说是由`malloc`或者`calloc`分配的某个给定大小的内存块，例如下表是一个有20个浮点类型（双精度）的内存块，它可能存储了一个4x5矩阵的值，也有可能存储了一个2x5x2的三阶张量的值。
-![这里写图片描述](//img-blog.csdn.net/2018031921100225?watermark/2/text/Ly9ibG9nLmNzZG4ubmV0L3UwMTMwMTA4ODk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70)
+
+![](https://img-blog.csdn.net/2018031921100225?watermark/2/text/Ly9ibG9nLmNzZG4ubmV0L3UwMTMwMTA4ODk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70)
+
 有很多策略把ndarray的元素放到一个一维的内存块中，我们这里介绍strided indexing scheme，在访问时需要计算每个维度的步长。比如Fortran和 Matlab里都是列优先(按列存储元素)，一个shape为(2,3,4)的3维数组，第0维连续两个元素的起始位置相距1个itemsize(代入公式可得)，即[0,0,0]与[1,0,0]的起始位置就相差一个itemsize。但是如果在C中是行优先的，第0维连续两个元素的起始位置相距d1*d2=12个itemsize，即[0,0,0]与[1,0,0]的起始位置就相差12个itemsize
 **itemsize代表每个元素的所占内存大小**
 **如果该ndarray的所有元素在内存中都是连续的，则它的步长计算公式如下(column代表列优先, row代表行优先)**
-![这里写图片描述](//img-blog.csdn.net/20180319213135991?watermark/2/text/Ly9ibG9nLmNzZG4ubmV0L3UwMTMwMTA4ODk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70)
+
+![](https://img-blog.csdn.net/20180319213135991?watermark/2/text/Ly9ibG9nLmNzZG4ubmV0L3UwMTMwMTA4ODk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70)
 
 ```python
 # storageOffset内存块的起始地址 offset为数组元素(i,j,k)的起始地址
@@ -33,7 +36,9 @@ offset = storageOffset + i * stride[0] + j * stride[1] + k * stride[2]
 [1, 4, 2, 5, 3, 6]
 ```
 3维索引(i, j, k)的扩展: 一个N维索引(n1,n2,n3..nN-1)的偏移：每个维度的步长乘以该维度大小的和
-![这里写图片描述](//img-blog.csdn.net/20180319214213714?watermark/2/text/Ly9ibG9nLmNzZG4ubmV0L3UwMTMwMTA4ODk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70)
+
+![](https://img-blog.csdn.net/20180319214213714?watermark/2/text/Ly9ibG9nLmNzZG4ubmV0L3UwMTMwMTA4ODk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70)
+
 实际中还有一点小情况
 1. 某个维度k的size是1，这个维度的索引只能0，即nk=0，则该维度的步长可为任意，因为nk*sk恒等于0了
 2. 某个数组没有任何元素，不存在合法的索引了，也就不要步长了。
@@ -143,6 +148,6 @@ array([[ 1, -2],
 
 
 ----------
-[wiki：数组步长](https://zh.wikipedia.org/wiki/%E6%95%B0%E7%BB%84%E6%AD%A5%E9%95%BF)
-[PyTorch源码浅析（一）](https://zhuanlan.zhihu.com/p/34496542)
-[Internal memory layout of an ndarray](https://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html#internal-memory-layout-of-an-ndarray)
+1. [wiki：数组步长](https://zh.wikipedia.org/wiki/%E6%95%B0%E7%BB%84%E6%AD%A5%E9%95%BF)
+2. [PyTorch源码浅析（一）](https://zhuanlan.zhihu.com/p/34496542)
+3. [Internal memory layout of an ndarray](https://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html#internal-memory-layout-of-an-ndarray)
