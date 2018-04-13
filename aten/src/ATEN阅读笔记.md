@@ -77,6 +77,8 @@ typedef struct THAllocator {
 
 ## THC
 
+> TENSOR CUDA
+
 * #define THCTensor          TH_CONCAT_3(TH,CReal,Tensor)  生成 Token `THCRealTensor` , class 的 Token(名字)。
 * #define THCTensor_(NAME)   TH_CONCAT_4(TH,CReal,Tensor_,NAME)， 生成 Token `THCRealTensor_NAME` , 函数的 Token(名字).
 
