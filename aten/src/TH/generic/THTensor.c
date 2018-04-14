@@ -3,21 +3,32 @@
 #else
 
 /**** access methods ****/
+/**** 访问 方法****/
+
+/*
+
+THFloatStorage *THFloatTensor_storage(const THFloatTensor *self){...}
+*/
+
+// 获取 Tensor 的 storage
 THStorage *THTensor_(storage)(const THTensor *self)
 {
   return self->storage;
 }
 
+// 获取 Tensor 的 storageOffset
 ptrdiff_t THTensor_(storageOffset)(const THTensor *self)
 {
   return self->storageOffset;
 }
 
+// 获取 Tensor 的维度， 1-d，2-d ...
 int THTensor_(nDimension)(const THTensor *self)
 {
   return self->nDimension;
 }
 
+// 获取 Tensor 指定维度的 size， 我们更为熟悉的叫法是 shape
 int64_t THTensor_(size)(const THTensor *self, int dim)
 {
   THArgCheck((dim >= 0) && (dim < self->nDimension), 2, "dimension %d out of range of %dD tensor",

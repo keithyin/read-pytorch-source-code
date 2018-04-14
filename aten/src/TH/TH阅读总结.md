@@ -1,6 +1,7 @@
 # TH阅读总结
 
-* `generic/` 文件夹下写的是模板，然后通过宏替换的方式达到 C++ 模板编程的效果
+* `TH/generic/` 文件夹下写的是模板，然后通过宏替换的方式达到 C++ 模板编程的效果
+* `TH/` 中的文件大部分是用来 通过模板生成特定类型代码的文件。
 
 ## 工具宏总结
 
@@ -48,3 +49,45 @@
 // THTensor_(NAME) 也是差不多一个德行
 ```
 
+## 几个重要的结构体
+
+```c
+typedef struct THTensor
+{
+    int64_t *size; // 表示 shape
+    int64_t *stride; // stride， 假设 size 为 [3, 2, 1, 4], 那么 stride 为 [8, 4, 4, 1]
+                     // 如果 数据不是连续的， stride 就是另一种情况了。详见预备知识1
+    int nDimension; // 表示有几维
+
+    // Note: storage->size may be greater than the recorded size
+    // of a tensor
+    THStorage *storage;
+    ptrdiff_t storageOffset; // Tensor_data的起始地址 TENSOR_data = TENSOR->storage->data+TENSOR->storageOffset
+    int refcount;
+
+    char flag;
+
+} THTensor;
+```
+
+**stride**
+由于数据实际上是在一维空间中存放着的，stride[d] 表示的意思是，如果 `d`-维 的 值增加 1,对应 在一维空间的步长是多少。
+假设 a 是一个 2 维矩阵，size 为 `[2,3]`, 存放的值是 `[[1,2,3], [5,6,7]]`, 这些值在内存中实际上是 `[1,2,3,5,6,7]` 存储的。
+a 的 stride 是 `[3, 1]`, 假设 a[0,1] 在内存中的位置 `pos1`, 根据 stride，a[0,2] 在内存中的位置是 `pos1+1`，a[1,1] 在内存中的位置是 `pos1+3`.
+
+## TensorApply
+如何使用
+
+```c
+void THTensor_(add)(THTensor *r_, THTensor *t, real value)
+{
+  THTensor_(resizeAs)(r_, t);
+  if (THTensor_(isContiguous)(r_) && THTensor_(isContiguous)(t) && THTensor_(nElement)(r_) == THTensor_(nElement)(t)) {
+    TH_TENSOR_APPLY2_CONTIG(real, r_, real, t, THVector_(adds)(r__data, t_data, value, r__len););
+  } else {
+    TH_TENSOR_APPLY2(real, r_, real, t, *r__data = *t_data + value;);
+  }
+}
+
+// TH_TENSOR_APPLY2(值1类型, 值1, 值2类型, 值2, 对单个值定义的运算)， t_data 是 t中的某一个值
+```

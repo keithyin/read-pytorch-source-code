@@ -160,7 +160,7 @@ real z = *output_data;
 *gradInput_data=*gradOutput_data *(1. -z )* z ;
 
 */
-// 可以看做一个内联的函数， 每次调用的时候都会展开，那么问题来了，为啥不直接写成内联函数呢？ 难道是担心 编译器的优化？
+// 可以看做一个内联的函数， 每次调用的时候都会展开
 #define TH_TENSOR_APPLY3_D(TYPE1, TENSOR1, TYPE2, TENSOR2, TYPE3, TENSOR3, DIM, CODE) \
 { \
   int TH_TENSOR_APPLY_hasFinished = 0; \
