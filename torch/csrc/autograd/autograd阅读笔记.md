@@ -13,6 +13,7 @@
 1. 根据 inputs 计算出 grad_fn 的 `is_volatile, is_executable, next_functions`
 2. 然后创建 grad_fn
 3. 然后创建 forward_fn 的 输出 Variable, `grad_fn` 保存在这个对象里面。
+4. 由于 `inputs` 也保存了 `grad_fn`, 所以, 很容易就能构建 `grad_fn.next_functions`了
 
 > 根据 `next_functions` 就能得到 反向传导图了。
 
@@ -28,12 +29,16 @@
 
 看下反向传导的过程是啥样的：
 
-**Engine.execute() *
-1. 开启 NUM_DEVICES 个线程 放在后台 处理 GraphTask 中的任务 （只执行一次，和进程有相同的生命周期？）
+**Engine.execute()**
+1. std::call_once(start_threads_flag, &Engine::start_threads, this); 开启 NUM_DEVICES 个线程 放在后台 处理 GraphTask 中的任务 （只执行一次，和进程有相同的生命周期？）
+    1. 根据设备的数量 (一个CPU, 几卡GPU), 创建 ReadyQueue, 一个设备负责一个ReadyQueue, 来执行其中FunctionTask. 设备的数量=线程的数量=ReadyQueue 的数量
+    2. 执行 `Engine::thread_init`, 设置当前的 worker_device, 然后执行 `Engine::thread_main`
+    3. `thread_main` 如何执行见 文章下面部分
 2. 创建 GraphTask : {keep_graph, mutex, std::condition_variable not_done, std::unordered_map<Function*, InputBuffer> not_ready, std::unordered_map<Function*, int> dependencies, int owner}
 3. 做一个  graph_root（是个 Function）， 然后将其包装成 FunctionTask 放到 CPU 的 ReadyQueue 中！
-4. 计算 反向传导图中的 所有可计算函数的 依赖 个数 ，保存在 GraphTask 的 dependencies 中
-5. 如果 NO_DEVICE， 就不会执行下面代码
+4. 计算 反向传导图中的 所有可计算函数的 依赖 个数 ，保存在 GraphTask 的 dependencies 中 (`Engine::compute_dependencies()`)
+    1. 层次遍历DAG中的所有节点, 如果当前节点的下一个节点为 next_ptr, 那么 dependencies[next_ptr] += 1; 这样就可以计算出所有的节点的依赖个数.
+5. 如果 NO_DEVICE， 就默默的等着计算结束就好了 (execute刚开始开的线程才是工作的线程, 执行execute的线程其实是NO_DEVICE)
 6. 然后执行 Engin.thread_main(GraphTask* gt)： 第一步开启的 线程也是 执行下面的操作。
     1. 从 Engine 的 ready_queues 中拿出 当前 worker_device 所对应的 ReadyQueue
     2. 循环执行 Engine.evaluate_function(FunctionTask)： 从 相应的 ReadyQueue 中取出 FunctionTask（取的过程可能会阻塞）
@@ -46,11 +51,29 @@
     4. NO_DEVICE 操作操作
 
 
-**梯度计算时， GraphTask 的角色是：**
+**Engine.thread_main**
+1. 从 Engine 的 ready_queues 中拿到属于当前 线程的 ReadyQueue
+2. 判断 (!graph_task || graph_task->outstanding_tasks > 0), 对于worker_thread, `graph_task==nullptr`, 所以只需要考虑第二个条件就行了
+3. 如果 判断条件满足, 则会从 ReadyQueue 中取出 FunctionTask, 执行这个FunctionTask (`Engine::evaluate_function`)
+    1. 计算梯度
+    2. 然后遍历所有的 `next_functions`, dependencies[next_func]--, 如果为0, 就直接 erase 了
+    3. 然后再看 `graph_task.not_ready` 列表中有没有记录这个 `next_fn`. 如果没有记录, 那就构建 InputBuffer, 然后根据InputBuffer构建 FunctionTask, 然后根据具体情况确定是放入 `not_ready` 中 还是 `ready_queue` 中.
+4. 
+
+**关于outstanding_tasks**
+* outstanding_tasks 的值总是会先加再减. 多线程情况下不会出现问题
+
+**梯度计算时， GraphTask 的角色是**
 
 * 记录 BP Graph 中所有 Function 的 dependencies 
 * 记录着 还没有 准备好的 Function。(准备好的 Function 被包装成 FunctionTask，放到 ReadyQueue 中。)
 * 管理着一些 GraphTask 的属性。 
+
+
+**FunctionTask 的角色是**
+
+* 在ReadyQueue中一个可以被执行的求导函数, 其中的输入已经准备好了
+
 
 **反向的时候调用 call_function(), 这个函数干了些啥？**
 
@@ -60,7 +83,7 @@
 
 
 **InputBuffer 的 device 是怎么得到的**
-
+* 根据梯度累积的值的设备确定的.
     
 
 **ReadyQueue**
