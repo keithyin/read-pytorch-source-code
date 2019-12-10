@@ -7,20 +7,22 @@
 1. Variable 在前向过程中充当什么角色
 2. Function 在前向过程中充当什么角色
 
-**pytorch 的前向过程，是动态创建反向传导图的过程 ！如何创建的反向传导图呢？**
-核心是 `wrap_outputs`， `wrap_outputs` 做了什么：
 
-1. 根据 inputs 计算出 grad_fn 的 `is_volatile, is_executable, next_functions`
-2. 然后创建 grad_fn
-3. 然后创建 forward_fn 的 输出 Variable, `grad_fn` 保存在这个对象里面。
-4. 由于 `inputs` 也保存了 `grad_fn`, 所以, 很容易就能构建 `grad_fn.next_functions`了
+
+**pytorch 的前向过程，是动态创建反向传导图的过程 ！如何创建的反向传导图呢？**
+
+前向过程, 调用 Function 的 apply 方法:
+    1. 根据输入计算输出
+    2. 调用wrap_outputs
+
+
+构建反向传导图的核心是 `wrap_outputs`， `wrap_outputs` 做了什么：
+    1. 根据 inputs 计算出 grad_fn 的 `is_volatile, is_executable, next_functions`
+    2. 然后创建 grad_fn 
+    3. 然后创建 forward_fn 的 输出 Variable, `grad_fn` 保存在这个对象里面。
+    4. 由于 `inputs` 也保存了 `grad_fn`, 所以, 很容易就能构建 `grad_fn.next_functions`了
 
 > 根据 `next_functions` 就能得到 反向传导图了。
-
-
-
-
-
 
 ## 反向：
 
